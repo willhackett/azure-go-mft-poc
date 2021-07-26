@@ -1,4 +1,4 @@
-package pkg
+package main
 
 import (
 	"github.com/willhackett/azure-mft/pkg/cmd"
