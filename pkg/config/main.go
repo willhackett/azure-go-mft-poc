@@ -14,10 +14,14 @@ type Paths struct {
 	TmpDir	string
 }
 
+type AzureResources struct {
+	AccountName string
+	AccountKey string
+	StorageAccountName string
+}
+
 var (
 	ConfigFilePath	string
-
-	
 )
 
 func Init() {
