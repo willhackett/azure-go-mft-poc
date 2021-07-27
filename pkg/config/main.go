@@ -1,7 +1,6 @@
 package config
 
 import (
-	"crypto"
 	"crypto/rsa"
 	"errors"
 	"fmt"
@@ -9,7 +8,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/willhackett/azure-mft/pkg/keys"
 )
 
 type AgentConf struct {
@@ -33,6 +31,12 @@ type Exit struct {
 	Command	 string	`mapstructure:"command"`
 }
 
+type Keys struct {
+	KeyID string
+	PublicKey *rsa.PublicKey
+	PrivateKey *rsa.PrivateKey
+}
+
 type Config struct {
 	Agent AgentConf `mapstructure:"agent"`
 
@@ -50,7 +54,9 @@ var (
 
 	privateKey	*rsa.PrivateKey
 
-	publicKey	crypto.PublicKey
+	publicKey *rsa.PublicKey
+
+	keyID		string
 )
 
 func Init() {
@@ -90,13 +96,9 @@ func Init() {
 	}
 
 	cacheDir, err := os.UserCacheDir()
-	if err != nil {
-		cobra.CheckErr(err)
-	}
+	cobra.CheckErr(err)
 	userHomeDir, err := os.UserHomeDir()
-	if err != nil {
-		cobra.CheckErr(err)
-	}
+	cobra.CheckErr(err)
 
 	if config.Paths.CacheDir == "" {
 		config.Paths.CacheDir = cacheDir + "/azmft"
@@ -107,19 +109,22 @@ func Init() {
 	if config.Paths.TmpDir == "" {
 		config.Paths.TmpDir = os.TempDir()
 	}
-
-	privateKey, publicKey, err = keys.GetKeys(config.Paths.KeysDir)
-	if err != nil {
-		cobra.CheckErr(err)
-	}
-
-	fmt.Print(config, publicKey)
 }
 
 func GetConfig() Config {
 	return config
 }
 
-func GetKeys() (*rsa.PrivateKey, interface{}) {
-	return privateKey, publicKey
+func GetKeys() Keys {
+	return Keys{
+		KeyID: keyID,
+		PublicKey: publicKey,
+		PrivateKey: privateKey,
+	}
+}
+
+func SetKeys(privateKeyIn *rsa.PrivateKey, publicKeyIn *rsa.PublicKey, keyIDIn string) {
+	publicKey = publicKeyIn
+	privateKey = privateKeyIn
+	keyID = keyIDIn
 }

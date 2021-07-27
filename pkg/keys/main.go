@@ -1,14 +1,20 @@
 package keys
 
 import (
-	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
+
+	"github.com/spf13/cobra"
+	"github.com/willhackett/azure-mft/pkg/azure"
+	"github.com/willhackett/azure-mft/pkg/config"
+	"github.com/willhackett/azure-mft/pkg/constant"
 )
 
 func generatePrivateKey() *rsa.PrivateKey {
@@ -58,7 +64,7 @@ func dumpPublicKeyToFile(keysDir string, privateKey *rsa.PrivateKey) error {
 	return nil
 }
 
-func loadKeysFromFile(keysDir string) (*rsa.PrivateKey, crypto.PublicKey, error) {
+func loadKeysFromFile(keysDir string) (*rsa.PrivateKey, *rsa.PublicKey, error) {
 	privateKeyPem, err := ioutil.ReadFile(keysDir + "/private.pem")
 	if err != nil {
 		return nil, nil, err
@@ -75,9 +81,13 @@ func loadKeysFromFile(keysDir string) (*rsa.PrivateKey, crypto.PublicKey, error)
 	}
 
 	publicKeyBlock, _ := pem.Decode(publicKeyPem)
-	publicKey, err := x509.ParsePKIXPublicKey(publicKeyBlock.Bytes)
+	publicKeyInt, err := x509.ParsePKIXPublicKey(publicKeyBlock.Bytes)
 	if err != nil {
 		return nil, nil, err
+	}
+	publicKey, ok := publicKeyInt.(*rsa.PublicKey)
+	if !ok {
+		return nil, nil, errors.New("failed to create public key")
 	}
 	return privateKey, publicKey, nil
 }
@@ -92,11 +102,38 @@ func createDirIfNotExist(dir string) error {
 	return nil
 }
 
-// GetKeys returns keys from the keys directory or generates new ones
-func GetKeys(keysDir string) (*rsa.PrivateKey, crypto.PublicKey, error) {
+func generatePublicKeyID(publicKey *rsa.PublicKey) (string, error){
+	publicKeyBytes, err := x509.MarshalPKIXPublicKey(publicKey)
+	if err != nil {
+		return "", err
+	}
+	publicKeyHash := sha256.Sum256(publicKeyBytes)
+	
+	return constant.AgentKeyName(config.GetConfig().Agent.Name, fmt.Sprintf("%x", publicKeyHash)[0:9]), nil
+}
+
+func marshalPublicKey(publicKey *rsa.PublicKey) ([]byte, error) {
+	publicKeyBytes, err := x509.MarshalPKIXPublicKey(publicKey)
+	if err != nil {
+		return nil, err
+	}
+
+	publicKeyBlock := &pem.Block{
+		Type:  "PUBLIC KEY",
+		Bytes: publicKeyBytes,
+	}
+
+	if err != nil {
+			return nil, err
+	}
+
+	return pem.EncodeToMemory(publicKeyBlock), nil
+}
+
+func getKeys(keysDir string) (*rsa.PrivateKey, *rsa.PublicKey, string, error) {
 	err := createDirIfNotExist(keysDir)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, "", err
 	}
 
 	privateKey, publicKey, err := loadKeysFromFile(keysDir)
@@ -104,12 +141,34 @@ func GetKeys(keysDir string) (*rsa.PrivateKey, crypto.PublicKey, error) {
 		privateKey = generatePrivateKey()
 		err = dumpPrivateKeyToFile(keysDir, privateKey)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, "", err
 		}
 		err = dumpPublicKeyToFile(keysDir, privateKey)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, "", err
 		}
 	}
-	return privateKey, publicKey, err
+
+	keyID, err := generatePublicKeyID(publicKey)
+	if err != nil {
+		return nil, nil, "", err
+	}
+
+	return privateKey, publicKey, keyID, err
+}
+
+
+func Init() {
+	keysDir := config.GetConfig().Paths.KeysDir
+
+	privateKey, publicKey, keyID, err := getKeys(keysDir)
+	cobra.CheckErr(err)
+
+	config.SetKeys(privateKey, publicKey, keyID)
+
+	publicKeyBytes, err := marshalPublicKey(publicKey)
+	cobra.CheckErr(err)
+	err = azure.UploadBuffer(constant.PublicKeyContainerName, keyID, publicKeyBytes)
+	cobra.CheckErr(err)
+	fmt.Println("Public key updated:", keyID)
 }

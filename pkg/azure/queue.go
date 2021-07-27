@@ -16,12 +16,7 @@ func getQueueMetadata() azqueue.Metadata {
 
 // Upsert creates a queue if it does not exist
 func UpsertQueue(queueName string) error {
-	pipeline, err := getPipeline()
-	if err != nil {
-		return err
-	}
-
-	queueURL := azqueue.NewQueueURL(getQueueURL(queueName), pipeline)
+	queueURL := azqueue.NewQueueURL(getQueueURL(queueName), azurePipeline)
 
 	response, err := queueURL.Create(getContext(), getQueueMetadata())
 	if err != nil {

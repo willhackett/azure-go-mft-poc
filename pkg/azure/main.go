@@ -16,32 +16,17 @@ var (
 	azureContext context.Context
 )
 
-func getCredential() (*azblob.SharedKeyCredential, error) {
-	if azureCredential != nil {
-		return azureCredential, nil
-	}
-
+func getCredential() error {
 	accountName, accountKey := config.GetConfig().Azure.AccountName, config.GetConfig().Azure.AccountKey
 
-	azureCredential, err := azblob.NewSharedKeyCredential(accountName, accountKey)
+	credential, err := azblob.NewSharedKeyCredential(accountName, accountKey)
 	if err != nil {
-		return nil, err
-	}
-	return azureCredential, nil
-}
-
-func getPipeline() (pipeline.Pipeline, error) {
-	if azurePipeline != nil {
-		return azurePipeline, nil
+		return err
 	}
 
-	credential, err := getCredential()
-	if err != nil {
-		return nil, err
-	}
+	azureCredential = credential
 
-	azurePipeline = azblob.NewPipeline(credential, azblob.PipelineOptions{})
-	return azurePipeline, nil
+	return nil
 }
 
 func getResourceURL(name string, resource string) url.URL {
