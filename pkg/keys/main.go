@@ -109,7 +109,7 @@ func generatePublicKeyID(publicKey *rsa.PublicKey) (string, error){
 	}
 	publicKeyHash := sha256.Sum256(publicKeyBytes)
 	
-	return constant.AgentKeyName(config.GetConfig().Agent.Name, fmt.Sprintf("%x", publicKeyHash)[0:9]), nil
+	return fmt.Sprintf("%x", publicKeyHash)[0:9], nil
 }
 
 func marshalPublicKey(publicKey *rsa.PublicKey) ([]byte, error) {
@@ -165,10 +165,11 @@ func Init() {
 	cobra.CheckErr(err)
 
 	config.SetKeys(privateKey, publicKey, keyID)
+	keyReference := constant.AgentKeyName(config.GetConfig().Agent.Name, keyID)
 
 	publicKeyBytes, err := marshalPublicKey(publicKey)
 	cobra.CheckErr(err)
-	err = azure.UploadBuffer(constant.PublicKeyContainerName, keyID, publicKeyBytes)
+	err = azure.UploadBuffer(constant.PublicKeyContainerName, keyReference, publicKeyBytes)
 	cobra.CheckErr(err)
 	fmt.Println("Public key updated:", keyID)
 }

@@ -31,6 +31,10 @@ type Exit struct {
 	Command	 string	`mapstructure:"command"`
 }
 
+type AllowFilesFrom []string
+
+type AllowRequestsFrom []string
+
 type Keys struct {
 	KeyID string
 	PublicKey *rsa.PublicKey
@@ -45,6 +49,10 @@ type Config struct {
 	Azure AzureConf `mapstructure:"azure"`
 	
 	Exits []Exit `mapstructure:"exits"`
+
+	AllowFilesFrom AllowFilesFrom `mapstructure:"allow_files_from"`
+
+	AllowRequestsFrom AllowRequestsFrom `mapstructure:"allow_requests_from"`
 }
 
 var (

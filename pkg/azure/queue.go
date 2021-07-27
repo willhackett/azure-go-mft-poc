@@ -1,6 +1,7 @@
 package azure
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/Azure/azure-storage-queue-go/azqueue"
@@ -14,9 +15,17 @@ func getQueueMetadata() azqueue.Metadata {
 	}
 }
 
+func getQueue(queueName string) azqueue.QueueURL {
+	return azqueue.NewQueueURL(getQueueURL(queueName), azurePipeline)
+}
+
+func getMessagesURL(queueName string) azqueue.MessagesURL {
+	return getQueue(queueName).NewMessagesURL()
+}
+
 // Upsert creates a queue if it does not exist
 func UpsertQueue(queueName string) error {
-	queueURL := azqueue.NewQueueURL(getQueueURL(queueName), azurePipeline)
+	queueURL := getQueue(queueName)
 
 	response, err := queueURL.Create(getContext(), getQueueMetadata())
 	if err != nil {
@@ -37,4 +46,10 @@ func InitQueue() {
 	if err := UpsertQueue(config.GetConfig().Agent.Name); err != nil {
 		cobra.CheckErr(err)
 	}
+}
+
+func GetMessagesURLAndContext() (azqueue.MessagesURL, context.Context) {
+	messagesURL := getMessagesURL(config.GetConfig().Agent.Name)
+
+	return messagesURL, azureContext
 }
