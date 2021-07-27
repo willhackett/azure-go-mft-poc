@@ -6,8 +6,10 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
-	"encoding/base64"
+	"encoding/hex"
+	"encoding/pem"
 	"errors"
+	"fmt"
 
 	"github.com/willhackett/azure-mft/pkg/azure"
 	"github.com/willhackett/azure-mft/pkg/config"
@@ -31,7 +33,7 @@ func SignMessage(message *constant.Message) error {
 		return err
 	}
 
-	message.Signature = base64.StdEncoding.EncodeToString(signature)
+	message.Signature = hex.EncodeToString(signature)
 
 	return nil
 }
@@ -43,28 +45,35 @@ func VerifyMessage(message constant.Message) error {
 	
 	publicKeyBytes, err := getPublicKey(message.Agent, message.KeyID)
 	if err != nil {
+		fmt.Println("Error conerting public key")
 		return err
 	}
 
+	decodedPublicKeyPem, _ := pem.Decode(publicKeyBytes)
+
 	// Convert the public key to an x509 public key
-	var publicKey *rsa.PublicKey
-	parsedPublicKey, err := x509.ParsePKIXPublicKey(publicKeyBytes)
+	parsedPublicKey, err := x509.ParsePKIXPublicKey(decodedPublicKeyPem.Bytes)
 	if err != nil {
+		fmt.Println("Error parsing public key", err)
 		return err
 	}
+	var publicKey *rsa.PublicKey
 	publicKey, ok := parsedPublicKey.(*rsa.PublicKey)
 	if !ok {
+		fmt.Println("Error coerce public key")
 		return errors.New("failed to create public key")
 	}
 
-	signature, err := base64.StdEncoding.DecodeString(message.Signature)
+	signature, err := hex.DecodeString(message.Signature)
 	if err != nil {
+		fmt.Println("Error decoding hex string", err)
 		return err
 	}
 
 	// Verify the message signature with the public key
 	err = rsa.VerifyPKCS1v15(publicKey, crypto.SHA256, verifierHash[:], signature)
 	if err != nil {
+		fmt.Println("Not signed by trusted source")
 		return err
 	}
 

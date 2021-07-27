@@ -13,22 +13,6 @@ import (
 	"github.com/willhackett/azure-mft/pkg/keys"
 )
 
-func handleFileRequest() {
-
-}
-
-func handleFileHandshake() {
-
-}
-
-func handleFileHandshakeResponse() {
-
-}
-
-func handleFileAvailable() {
-
-}
-
 func canAgentSendFile(agentName string) bool {
 	cfg := config.GetConfig()
 
@@ -63,7 +47,7 @@ func handleMessage(message *Message) {
 				return
 			}
 
-			handleFileRequest()
+			err = handleFileRequest(messageBody)
 		case constant.FileHandshakeMessageType:
 			// Check if requesting agent is allowed to send files
 			if !canAgentSendFile(messageBody.Agent) {
@@ -71,9 +55,9 @@ func handleMessage(message *Message) {
 				return
 			}
 			
-			handleFileHandshake()
+			err = handleFileHandshake(messageBody)
 		case constant.FileHandshakeResponseMessageType:
-			handleFileHandshakeResponse()
+			handleFileHandshakeResponse(messageBody)
 
 		case constant.FileAvailableMessageType:
 			if !canAgentSendFile(messageBody.Agent) {
@@ -81,9 +65,13 @@ func handleMessage(message *Message) {
 				return
 			}
 
-			handleFileAvailable()
+			err = handleFileAvailable(messageBody)
 		default:
 			fmt.Println("Invalid message type, discarding")
+	}
+
+	if err != nil {
+		fmt.Println("An error occurred while processing message", err)
 	}
 }
 
@@ -125,10 +113,9 @@ func Init() {
 			log.Fatal(err)
 		}
 		if dequeue.NumMessages() == 0 {
-			fmt.Println("Queue empty, waiting 10 seconds")
-			time.Sleep(time.Second * 10)
+			time.Sleep(time.Second * 1)
 		} else {
-			fmt.Println("messages on queue, pulling")
+			fmt.Println("Processing new messages")
 
 			for m := int32(0); m < dequeue.NumMessages(); m++ {
 				messageChannel <- dequeue.Message(m)

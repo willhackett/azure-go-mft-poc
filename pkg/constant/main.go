@@ -1,5 +1,7 @@
 package constant
 
+import "github.com/google/uuid"
+
 const (
 	PublicKeyContainerName = "publickeys"
 
@@ -23,4 +25,12 @@ func StringInList(str string, list []string) bool {
 		}
 	}
 	return false
+}
+
+func GetUUID() (string, error) {
+	UUID, err := uuid.NewRandom()
+	if err != nil {
+		return "", err
+	}
+	return UUID.String(), nil
 }

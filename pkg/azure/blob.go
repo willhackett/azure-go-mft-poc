@@ -92,12 +92,16 @@ func UploadBuffer(containerName string, blobName string, buffer []byte) error {
 func DownloadBuffer(containerName string, blobName string) ([]byte, error) {
 	blobURL := getBlobURL(containerName, blobName)
 
-	buffer := make([]byte, 0)
-	err := azblob.DownloadBlobToBuffer(getContext(), blobURL, 0, 0, buffer, azblob.DownloadFromBlobOptions{
-		BlockSize: 2 * 1024,
-	})
+	properties, err := blobURL.GetProperties(azureContext, azblob.BlobAccessConditions{}, azblob.ClientProvidedKeyOptions{})
 	if err != nil {
 		return nil, err
 	}
-	return buffer, nil
+
+	bytes := make([]byte, properties.ContentLength())
+	err = azblob.DownloadBlobToBuffer(getContext(), blobURL, 0, 0, bytes, azblob.DownloadFromBlobOptions{})
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+	return bytes, nil
 }

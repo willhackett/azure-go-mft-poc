@@ -3,6 +3,7 @@ package azure
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/Azure/azure-storage-queue-go/azqueue"
 	"github.com/spf13/cobra"
@@ -52,4 +53,17 @@ func GetMessagesURLAndContext() (azqueue.MessagesURL, context.Context) {
 	messagesURL := getMessagesURL(config.GetConfig().Agent.Name)
 
 	return messagesURL, azureContext
+}
+
+func PostMessage(queueName string, message string) error {
+	messagesURL := getMessagesURL(queueName)
+
+	response, err := messagesURL.Enqueue(getContext(), message, 0, 60 * time.Second)
+
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Message posted: ", response.RequestID())
+	return nil
 }
