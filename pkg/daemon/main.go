@@ -72,7 +72,10 @@ func handleMessage(message *Message) {
 
 	if err != nil {
 		fmt.Println("An error occurred while processing message", err)
+		return
 	}
+
+	message.URL.Delete(message.context, *message.popReceipt)
 }
 
 func Init() {

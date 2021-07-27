@@ -2,6 +2,7 @@ package azure
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/spf13/cobra"
@@ -16,7 +17,7 @@ func getBlobMetadata() azblob.Metadata {
 
 func getContainer(containerName string) *azblob.ContainerURL {
 	URL := getContainerURL(containerName)
-	
+
 	container := azblob.NewContainerURL(URL, azurePipeline)
 
 	return &container
@@ -70,8 +71,6 @@ func InitBlob() {
 // func UploadFile(containerName string, blobName string) error {
 // 	blobURL := getBlobURL(containerName, blobName)
 
-
-
 // }
 
 func UploadBuffer(containerName string, blobName string, buffer []byte) error {
@@ -79,7 +78,7 @@ func UploadBuffer(containerName string, blobName string, buffer []byte) error {
 
 	response, err := azblob.UploadBufferToBlockBlob(getContext(), buffer, blockBlobURL, azblob.UploadToBlockBlobOptions{
 		BlockSize: 2 * 1024,
-		Metadata: getBlobMetadata(),
+		Metadata:  getBlobMetadata(),
 	})
 
 	if err != nil && response.RequestID() != "" {
@@ -104,4 +103,31 @@ func DownloadBuffer(containerName string, blobName string) ([]byte, error) {
 		return nil, err
 	}
 	return bytes, nil
+}
+
+func UploadFromFile(containerName string, blobName string, fileName string) error {
+	blockBlobURL := getBlobURL(containerName, blobName).ToBlockBlobURL()
+
+	file, err := os.Open(fileName)
+	if err != nil {
+		return err
+	}
+
+	response, err := azblob.UploadFileToBlockBlob(getContext(), file, blockBlobURL, azblob.UploadToBlockBlobOptions{
+		BlockSize: 32 * 1024,
+		Metadata:  getBlobMetadata(),
+		Progress: func(bytes int64) {
+			fmt.Printf("\rUploading: %d", bytes)
+		},
+	})
+
+	sasToken, err := getBlobURL(containerName, blobName)
+
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("\nUpload complete: ", response.RequestID())
+
+	return nil
 }

@@ -1,7 +1,9 @@
-package daemon
+package registry
 
 import (
 	"time"
+
+	"github.com/willhackett/azure-mft/pkg/constant"
 )
 
 const (
@@ -9,8 +11,8 @@ const (
 )
 
 type Transfer struct {
-	ID					string
-	Object	interface{}
+	ID         string
+	Details    constant.FileRequestMessage
 	Expiration int64
 }
 
@@ -18,19 +20,19 @@ var (
 	transfers = make(map[string]Transfer)
 )
 
-func Add(id string, obj interface{}, expiresIn int64) {
+func AddTransfer(id string, obj constant.FileRequestMessage, expiresIn int64) {
 	transfers[id] = Transfer{
-		ID:				id,
-		Object:			obj,
-		Expiration:	time.Now().Unix() + expiresIn,
+		ID:         id,
+		Details:    obj,
+		Expiration: time.Now().Unix() + expiresIn,
 	}
 }
 
-func Delete(id string) {
+func DeleteTransfer(id string) {
 	delete(transfers, id)
 }
 
-func Get(id string) (Transfer, bool) {
+func GetTransfer(id string) (Transfer, bool) {
 	t, ok := transfers[id]
 	return t, ok
 }
@@ -50,11 +52,11 @@ func init() {
 	go func() {
 		for {
 			select {
-				case <-done:
-					return
-				case <-ticker.C:
-					DeleteExpired()
-				}
+			case <-done:
+				return
+			case <-ticker.C:
+				DeleteExpired()
 			}
+		}
 	}()
 }
