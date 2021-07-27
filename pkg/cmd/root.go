@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
+	"github.com/willhackett/azure-mft/pkg/azure"
 	"github.com/willhackett/azure-mft/pkg/config"
 )
 
@@ -19,7 +20,11 @@ func Execute() {
 }
 
 func init() {
-	cobra.OnInitialize(config.Init)
+	cobra.OnInitialize(
+		config.Init,
+		azure.InitBlob,
+		azure.InitQueue,
+	)
 
 	rootCmd.PersistentFlags().StringVar(&config.ConfigFilePath, "config", "", "config file location (default is ~/.config/azmft.config.yaml")
 }

@@ -1,6 +1,7 @@
 package keys
 
 import (
+	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -57,28 +58,28 @@ func dumpPublicKeyToFile(keysDir string, privateKey *rsa.PrivateKey) error {
 	return nil
 }
 
-func loadKeysFromFile(keysDir string) (error, *rsa.PrivateKey, interface{}) {
+func loadKeysFromFile(keysDir string) (*rsa.PrivateKey, crypto.PublicKey, error) {
 	privateKeyPem, err := ioutil.ReadFile(keysDir + "/private.pem")
 	if err != nil {
-		return err, nil, nil
+		return nil, nil, err
 	}
 	publicKeyPem, err := ioutil.ReadFile(keysDir + "/public.pem")
 	if err != nil {
-		return err, nil, nil
+		return nil, nil, err
 	}
 
 	privateKeyBlock, _ := pem.Decode(privateKeyPem)
 	privateKey, err := x509.ParsePKCS1PrivateKey(privateKeyBlock.Bytes)
 	if err != nil {
-		return err, nil, nil
+		return nil, nil, err
 	}
 
 	publicKeyBlock, _ := pem.Decode(publicKeyPem)
 	publicKey, err := x509.ParsePKIXPublicKey(publicKeyBlock.Bytes)
 	if err != nil {
-		return err, nil, nil
+		return nil, nil, err
 	}
-	return nil, privateKey, publicKey
+	return privateKey, publicKey, nil
 }
 
 func createDirIfNotExist(dir string) error {
@@ -92,13 +93,13 @@ func createDirIfNotExist(dir string) error {
 }
 
 // GetKeys returns keys from the keys directory or generates new ones
-func GetKeys(keysDir string) (*rsa.PrivateKey, interface{}, error) {
+func GetKeys(keysDir string) (*rsa.PrivateKey, crypto.PublicKey, error) {
 	err := createDirIfNotExist(keysDir)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	err, privateKey, publicKey := loadKeysFromFile(keysDir)
+	privateKey, publicKey, err := loadKeysFromFile(keysDir)
 	if err != nil {
 		privateKey = generatePrivateKey()
 		err = dumpPrivateKeyToFile(keysDir, privateKey)

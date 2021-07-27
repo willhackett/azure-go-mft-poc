@@ -1,6 +1,7 @@
 package config
 
 import (
+	"crypto"
 	"crypto/rsa"
 	"errors"
 	"fmt"
@@ -24,7 +25,6 @@ type PathsConf struct {
 type AzureConf struct {
 	AccountName string	`mapstructure:"account_name"`
 	AccountKey string	`mapstructure:"account_key"`
-	StorageAccountName string	`mapstructure:"storage_account_name"`
 }
 
 type Exit struct {
@@ -50,7 +50,7 @@ var (
 
 	privateKey	*rsa.PrivateKey
 
-	publicKey	interface{}
+	publicKey	crypto.PublicKey
 )
 
 func Init() {
@@ -79,14 +79,14 @@ func Init() {
 	if config.Agent.Name == "" {
 		cobra.CheckErr(errors.New("config.agent.name is not specified"))
 	}
+	if config.Agent.Name == "publickeys" {
+		cobra.CheckErr(errors.New("publickeys is a reserved agent name"))
+	}
 	if config.Azure.AccountName == "" {
 		cobra.CheckErr(errors.New("config.azure.account_name is not specified"))
 	}
 	if config.Azure.AccountKey == "" {
 		cobra.CheckErr(errors.New("config.azure.account_key is not specified"))
-	}
-	if config.Azure.StorageAccountName == "" {
-		cobra.CheckErr(errors.New("config.azure.storage_account_name is not specified"))
 	}
 
 	cacheDir, err := os.UserCacheDir()
@@ -113,7 +113,7 @@ func Init() {
 		cobra.CheckErr(err)
 	}
 
-	fmt.Print(config)
+	fmt.Print(config, publicKey)
 }
 
 func GetConfig() Config {
