@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path"
 
 	"github.com/spf13/cobra"
 	"github.com/willhackett/azure-mft/pkg/azure"
@@ -29,6 +31,16 @@ var (
 
 			uuid, err := constant.GetUUID()
 			cobra.CheckErr(err)
+			workingDir, err := os.Getwd()
+			cobra.CheckErr(err)
+
+			if fileName[0:1] != "/" {
+				fileName = path.Join(workingDir, fileName)
+			}
+
+			if destinationFileName != "/" {
+				cobra.CheckErr(errors.New("destination file namemust be an absolute path"))
+			}
 
 			payload := constant.FileRequestMessage{
 				FileName:			 fileName,
