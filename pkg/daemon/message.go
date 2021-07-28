@@ -25,8 +25,10 @@ func (qm *QueueMessage) Delete() {
 func (qm *QueueMessage) IncreaseLease() {
 	update, err := qm.URL.Update(qm.context, qm.popReceipt, time.Second*120, qm.text)
 	if err != nil {
-		fmt.Println("Something went wrong", err)
+		fmt.Println("ERROR", err)
 	} else {
+		fmt.Println("NEWPOPRECEIPT", update.PopReceipt)
 		qm.popReceipt = update.PopReceipt
+		fmt.Println(qm)
 	}
 }

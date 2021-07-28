@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/willhackett/azure-mft/pkg/azure"
 	"github.com/willhackett/azure-mft/pkg/constant"
@@ -85,9 +86,14 @@ func handleFileHandshakeResponse(qm *QueueMessage, m constant.Message) error {
 		return errors.New("transfer expired or did not originate from this node")
 	}
 
+	debounce := time.Now().Add(time.Second * 30).Unix()
+
 	reportProgress := func(bytes int64) {
-		fmt.Println("Upload bytes", bytes)
-		qm.IncreaseLease()
+		if time.Now().Unix() > debounce {
+			fmt.Println("Upload bytes", bytes)
+			qm.IncreaseLease()
+			debounce = time.Now().Add(time.Second * 30).Unix()
+		}
 	}
 
 	signedURL, err := azure.UploadFromFile(transfer.Details.DestinationAgent, m.ID, transfer.Details.FileName, reportProgress)
@@ -119,12 +125,20 @@ func handleFileAvailable(qm *QueueMessage, m constant.Message) error {
 		return err
 	}
 
+	debounce := time.Now().Add(time.Second * 30).Unix()
+
 	reportProgress := func(bytes int64) {
-		fmt.Println("Upload bytes", bytes)
-		qm.IncreaseLease()
+		if time.Now().Unix() > debounce {
+			fmt.Println("Download bytes", bytes)
+			qm.IncreaseLease()
+			debounce = time.Now().Add(time.Second * 30).Unix()
+		}
 	}
 
 	err = azure.DownloadSignedURLToFile(signedURL, body.FileName, reportProgress)
+	if err != nil {
+		fmt.Println("Failed to download", err)
+	}
 	fmt.Println("Downloaded ", body.FileName)
 	return nil
 }

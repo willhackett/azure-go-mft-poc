@@ -137,7 +137,7 @@ func getKeys(keysDir string) (*rsa.PrivateKey, *rsa.PublicKey, string, error) {
 	}
 
 	privateKey, publicKey, err := loadKeysFromFile(keysDir)
-	if err != nil {
+	if err != nil || publicKey == nil || privateKey == nil {
 		privateKey = generatePrivateKey()
 		err = dumpPrivateKeyToFile(keysDir, privateKey)
 		if err != nil {
@@ -147,6 +147,10 @@ func getKeys(keysDir string) (*rsa.PrivateKey, *rsa.PublicKey, string, error) {
 		if err != nil {
 			return nil, nil, "", err
 		}
+	}
+	privateKey, publicKey, err = loadKeysFromFile(keysDir)
+	if err != nil {
+		return nil, nil, "", err
 	}
 
 	keyID, err := generatePublicKeyID(publicKey)
