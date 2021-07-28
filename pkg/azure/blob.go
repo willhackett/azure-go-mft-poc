@@ -2,7 +2,9 @@ package azure
 
 import (
 	"fmt"
+	"net/url"
 	"os"
+	"time"
 
 	"github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/spf13/cobra"
@@ -68,11 +70,6 @@ func InitBlob() {
 	}
 }
 
-// func UploadFile(containerName string, blobName string) error {
-// 	blobURL := getBlobURL(containerName, blobName)
-
-// }
-
 func UploadBuffer(containerName string, blobName string, buffer []byte) error {
 	blockBlobURL := getBlobURL(containerName, blobName).ToBlockBlobURL()
 
@@ -105,29 +102,80 @@ func DownloadBuffer(containerName string, blobName string) ([]byte, error) {
 	return bytes, nil
 }
 
-func UploadFromFile(containerName string, blobName string, fileName string) error {
-	blockBlobURL := getBlobURL(containerName, blobName).ToBlockBlobURL()
+func UploadFromFile(containerName string, blobName string, fileName string, progress func(bytes int64)) (string, error) {
+	blobURL := getBlobURL(containerName, blobName)
+	blockBlobURL := blobURL.ToBlockBlobURL()
 
 	file, err := os.Open(fileName)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	response, err := azblob.UploadFileToBlockBlob(getContext(), file, blockBlobURL, azblob.UploadToBlockBlobOptions{
 		BlockSize: 32 * 1024,
 		Metadata:  getBlobMetadata(),
-		Progress: func(bytes int64) {
-			fmt.Printf("\rUploading: %d", bytes)
-		},
+		Progress:  progress,
 	})
+	if err != nil {
+		fmt.Println("Failed uploading file", err)
+		return "", err
+	}
 
-	sasToken, err := getBlobURL(containerName, blobName)
+	fmt.Println("Successfully uploaded blob", response.RequestID())
+
+	sasQueryParams, err := azblob.BlobSASSignatureValues{
+		Protocol:      azblob.SASProtocolHTTPS,
+		ExpiryTime:    time.Now().UTC().Add(1 * time.Hour),
+		Permissions:   azblob.BlobSASPermissions{Read: true}.String(),
+		ContainerName: containerName,
+		BlobName:      blobName,
+	}.NewSASQueryParameters(azureCredential)
+	if err != nil {
+		fmt.Println("Failed generating SAS QPs", err)
+		return "", err
+	}
+
+	signedURL := sasQueryParams.Encode()
+
+	signedURL = fmt.Sprintf(
+		"https://%s.blob.core.windows.net/%s/%s?%s",
+		config.GetConfig().Azure.AccountName,
+		containerName,
+		blobName,
+		signedURL,
+	)
 
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	fmt.Println("\nUpload complete: ", response.RequestID())
 
+	return signedURL, nil
+}
+
+func DownloadSignedURLToFile(signedURL string, fileName string, progress func(bytes int64)) error {
+	blobURLBase, _ := url.Parse(signedURL)
+	blobURL := azblob.NewBlobURL(*blobURLBase, azurePipeline)
+
+	file, err := os.Create(fileName)
+	if err != nil {
+		fmt.Println("Failed creating file", err)
+		return nil
+	}
+
+	defer file.Close()
+
+	err = azblob.DownloadBlobToFile(azureContext, blobURL, 0, 0, file, azblob.DownloadFromBlobOptions{
+		BlockSize: 32 * 1024,
+		Progress:  progress,
+	})
+
+	if err != nil {
+		fmt.Println("Failed downloading file", err)
+		return nil
+	}
+
+	fmt.Println("Successfully downloaded blob")
 	return nil
 }

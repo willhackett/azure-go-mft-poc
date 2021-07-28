@@ -2,10 +2,14 @@ package daemon
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 
+	"github.com/willhackett/azure-mft/pkg/azure"
 	"github.com/willhackett/azure-mft/pkg/constant"
+	"github.com/willhackett/azure-mft/pkg/keys"
+	"github.com/willhackett/azure-mft/pkg/registry"
 	"github.com/willhackett/azure-mft/pkg/tasks"
 )
 
@@ -60,22 +64,61 @@ func handleFileHandshake(m constant.Message) error {
 	return nil
 }
 
-func handleFileHandshakeResponse(m constant.Message) error {
+func handleFileHandshakeResponse(qm *QueueMessage, m constant.Message) error {
 	body := constant.FileHandshakeResponseMessage{}
 	if err := json.Unmarshal(m.Payload, &body); err != nil {
 		return err
 	}
 	fmt.Println("File Handshake Response", body)
-	return nil
 
+	if body.Accepted == false {
+		fmt.Println("Rejected, transfer to be considered failed.")
+		return nil
+	}
+
+	transfer, ok := registry.GetTransfer(m.ID)
+	if !ok {
+		fmt.Println("Cannot get details of transfer, perhaps it expired")
+		return errors.New("transfer expired or did not originate from this node")
+	}
+
+	reportProgress := func(bytes int64) {
+		fmt.Println("Upload bytes", bytes)
+		qm.IncreaseLease()
+	}
+
+	signedURL, err := azure.UploadFromFile(transfer.Details.DestinationAgent, m.ID, transfer.Details.FileName, reportProgress)
+	if err != nil {
+		fmt.Println("Failed to upload", err)
+		return err
+	}
+
+	encryptedSignedURL, err := keys.EncryptString(transfer.Details.DestinationAgent, m.KeyID, signedURL)
+
+	err = tasks.SendFileAvailable(m.ID, encryptedSignedURL, transfer.Details.DestinationFileName, transfer.Details.DestinationAgent)
+
+	return err
 }
 
-func handleFileAvailable(m constant.Message) error {
+func handleFileAvailable(qm *QueueMessage, m constant.Message) error {
 	body := constant.FileAvailableMessage{}
 	if err := json.Unmarshal(m.Payload, &body); err != nil {
 		return err
 	}
 	fmt.Println("File Available", body)
-	return nil
 
+	signedURL, err := keys.DecryptString(body.SignedURL)
+	if err != nil {
+		fmt.Println("Cannot decrypt signed URL", err)
+		return err
+	}
+
+	reportProgress := func(bytes int64) {
+		fmt.Println("Upload bytes", bytes)
+		qm.IncreaseLease()
+	}
+
+	err = azure.DownloadSignedURLToFile(signedURL, body.FileName, reportProgress)
+	fmt.Println("Downloaded ", body.FileName)
+	return nil
 }

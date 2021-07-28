@@ -16,10 +16,28 @@ import (
 	"github.com/willhackett/azure-mft/pkg/constant"
 )
 
-func getPublicKey(agentName string, keyID string) ([]byte, error) {
+func getPublicKey(agentName string, keyID string) (*rsa.PublicKey, error) {
 	keyReference := constant.AgentKeyName(agentName, keyID)
+	publicKeyBytes, err := azure.DownloadBuffer(constant.PublicKeyContainerName, keyReference)
+	if err != nil {
+		return nil, err
+	}
 
-	return azure.DownloadBuffer(constant.PublicKeyContainerName, keyReference)
+	decodedPublicKeyPem, _ := pem.Decode(publicKeyBytes)
+
+	// Convert the public key to an x509 public key
+	parsedPublicKey, err := x509.ParsePKIXPublicKey(decodedPublicKeyPem.Bytes)
+	if err != nil {
+		fmt.Println("Error parsing public key", err)
+		return nil, err
+	}
+	var publicKey *rsa.PublicKey
+	publicKey, ok := parsedPublicKey.(*rsa.PublicKey)
+	if !ok {
+		fmt.Println("Error coerce public key")
+		return nil, errors.New("failed to create public key")
+	}
+	return publicKey, nil
 }
 
 func SignMessage(message *constant.Message) error {
@@ -42,26 +60,11 @@ func VerifyMessage(message constant.Message) error {
 	// Compose the verifier of the message
 	verifierBody := constant.VerifierString(message)
 	verifierHash := sha256.Sum256(verifierBody)
-	
-	publicKeyBytes, err := getPublicKey(message.Agent, message.KeyID)
-	if err != nil {
-		fmt.Println("Error conerting public key")
-		return err
-	}
 
-	decodedPublicKeyPem, _ := pem.Decode(publicKeyBytes)
-
-	// Convert the public key to an x509 public key
-	parsedPublicKey, err := x509.ParsePKIXPublicKey(decodedPublicKeyPem.Bytes)
+	publicKey, err := getPublicKey(message.Agent, message.KeyID)
 	if err != nil {
-		fmt.Println("Error parsing public key", err)
+		fmt.Println("Error getting public key")
 		return err
-	}
-	var publicKey *rsa.PublicKey
-	publicKey, ok := parsedPublicKey.(*rsa.PublicKey)
-	if !ok {
-		fmt.Println("Error coerce public key")
-		return errors.New("failed to create public key")
 	}
 
 	signature, err := hex.DecodeString(message.Signature)

@@ -70,16 +70,13 @@ func SendFileHandshakeResponse(id string, accepted bool, destinationAgent string
 	return nil
 }
 
-func SendFileAvailable(id string, blobID string, sasToken string, fileName string, fileSize int64, fileHash string, destinationAgent string) error {
+func SendFileAvailable(id string, signedURL string, fileName string, destinationAgent string) error {
 	var payload []byte
 	var err error
 
 	if payload, err = json.Marshal(constant.FileAvailableMessage{
-		BlobID:   blobID,
-		SASToken: sasToken,
-		FileName: fileName,
-		FileSize: fileSize,
-		FileHash: fileHash,
+		SignedURL: signedURL,
+		FileName:  fileName,
 	}); err != nil {
 		return err
 	}

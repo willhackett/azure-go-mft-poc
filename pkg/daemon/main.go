@@ -25,9 +25,9 @@ func canAgentRequestFile(agentName string) bool {
 	return constant.StringInList(agentName, cfg.AllowRequestsFrom) || agentName == cfg.Agent.Name
 }
 
-func handleMessage(message *Message) {
+func handleMessage(qm *QueueMessage) {
 	messageBody := constant.Message{}
-	err := json.Unmarshal([]byte(message.text), &messageBody)
+	err := json.Unmarshal([]byte(qm.text), &messageBody)
 	if err != nil {
 		fmt.Println("Invalid message body, discarding")
 	}
@@ -40,34 +40,34 @@ func handleMessage(message *Message) {
 	}
 
 	switch messageBody.Type {
-		case constant.FileRequestMessageType:
-			// Check if requesting agent is allowed to request files
-			if !canAgentRequestFile(messageBody.Agent) {
-				fmt.Println("Agent not allowed to request files, rejecting")
-				return
-			}
+	case constant.FileRequestMessageType:
+		// Check if requesting agent is allowed to request files
+		if !canAgentRequestFile(messageBody.Agent) {
+			fmt.Println("Agent not allowed to request files, rejecting")
+			return
+		}
 
-			err = handleFileRequest(messageBody)
-		case constant.FileHandshakeMessageType:
-			// Check if requesting agent is allowed to send files
-			if !canAgentSendFile(messageBody.Agent) {
-				fmt.Println("Agent not allowed to request files, rejecting")
-				return
-			}
-			
-			err = handleFileHandshake(messageBody)
-		case constant.FileHandshakeResponseMessageType:
-			handleFileHandshakeResponse(messageBody)
+		err = handleFileRequest(messageBody)
+	case constant.FileHandshakeMessageType:
+		// Check if requesting agent is allowed to send files
+		if !canAgentSendFile(messageBody.Agent) {
+			fmt.Println("Agent not allowed to request files, rejecting")
+			return
+		}
 
-		case constant.FileAvailableMessageType:
-			if !canAgentSendFile(messageBody.Agent) {
-				fmt.Println("Agent not allowed to request files, rejecting")
-				return
-			}
+		err = handleFileHandshake(messageBody)
+	case constant.FileHandshakeResponseMessageType:
+		handleFileHandshakeResponse(qm, messageBody)
 
-			err = handleFileAvailable(messageBody)
-		default:
-			fmt.Println("Invalid message type, discarding")
+	case constant.FileAvailableMessageType:
+		if !canAgentSendFile(messageBody.Agent) {
+			fmt.Println("Agent not allowed to request files, rejecting")
+			return
+		}
+
+		err = handleFileAvailable(messageBody)
+	default:
+		fmt.Println("Invalid message type, discarding")
 	}
 
 	if err != nil {
@@ -80,7 +80,7 @@ func handleMessage(message *Message) {
 
 func Init() {
 	messagesURL, azureContext := azure.GetMessagesURLAndContext()
-	
+
 	messageChannel := make(chan *azqueue.DequeuedMessage, constant.MaxConcurrentTransfers)
 
 	for i := 0; i < constant.MaxConcurrentTransfers; i++ {
@@ -91,11 +91,11 @@ func Init() {
 				popReceipt := inboundMessage.PopReceipt
 				URL := messagesURL.NewMessageIDURL(inboundMessage.ID)
 
-				message := &Message{
-					context: azureContext,
-					text: inboundMessage.Text,
+				queueMessage := &QueueMessage{
+					context:    azureContext,
+					text:       inboundMessage.Text,
 					popReceipt: &popReceipt,
-					URL: URL,
+					URL:        URL,
 				}
 
 				if inboundMessage.DequeueCount > constant.MaxRetriesThreshold {
@@ -104,7 +104,7 @@ func Init() {
 					continue
 				}
 
-				handleMessage(message)
+				handleMessage(queueMessage)
 			}
 		}(messageChannel)
 	}
