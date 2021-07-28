@@ -32,7 +32,7 @@ var (
 				fileName = path.Join(workingDir, fileName)
 			}
 
-			if destinationFileName != "/" {
+			if destinationFileName[0:1] != "/" {
 				cobra.CheckErr(errors.New("destination file namemust be an absolute path"))
 			}
 

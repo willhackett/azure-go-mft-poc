@@ -9,7 +9,7 @@ import (
 	"github.com/willhackett/azure-mft/pkg/keys"
 )
 
-func SendMessage(id string, payload []byte, destinationAgent string) error {
+func SendMessage(id string, messageType string, payload []byte, destinationAgent string) error {
 	var uuid string
 	var err error
 	var body []byte
@@ -18,6 +18,7 @@ func SendMessage(id string, payload []byte, destinationAgent string) error {
 		ID:      uuid,
 		KeyID:   config.GetKeys().KeyID,
 		Agent:   config.GetConfig().Agent.Name,
+		Type:    messageType,
 		Payload: payload,
 	}
 

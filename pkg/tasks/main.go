@@ -27,7 +27,7 @@ func SendFileRequest(sourceFileName string, sourceAgent string, destinationAgent
 		return err
 	}
 
-	if err = messaging.SendMessage(uuid, payload, sourceAgent); err != nil {
+	if err = messaging.SendMessage(uuid, constant.FileRequestMessageType, payload, sourceAgent); err != nil {
 		return err
 	}
 
@@ -47,7 +47,7 @@ func SendFileHandshake(id string, fileName string, fileSize int64, destinationAg
 		return err
 	}
 
-	if err = messaging.SendMessage(id, payload, destinationAgent); err != nil {
+	if err = messaging.SendMessage(id, constant.FileHandshakeMessageType, payload, destinationAgent); err != nil {
 		return err
 	}
 	return nil
@@ -64,7 +64,7 @@ func SendFileHandshakeResponse(id string, accepted bool, destinationAgent string
 		return err
 	}
 
-	if err = messaging.SendMessage(id, payload, destinationAgent); err != nil {
+	if err = messaging.SendMessage(id, constant.FileHandshakeResponseMessageType, payload, destinationAgent); err != nil {
 		return err
 	}
 	return nil
@@ -81,7 +81,7 @@ func SendFileAvailable(id string, signedURL string, fileName string, destination
 		return err
 	}
 
-	if err = messaging.SendMessage(id, payload, destinationAgent); err != nil {
+	if err = messaging.SendMessage(id, constant.FileAvailableMessageType, payload, destinationAgent); err != nil {
 		return err
 	}
 	return nil
