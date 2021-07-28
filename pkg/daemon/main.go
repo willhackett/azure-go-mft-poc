@@ -75,7 +75,7 @@ func handleMessage(qm *QueueMessage) {
 		return
 	}
 
-	qm.URL.Delete(qm.context, *qm.popReceipt)
+	qm.URL.Delete(qm.context, qm.popReceipt)
 }
 
 func Init() {
@@ -94,7 +94,7 @@ func Init() {
 				queueMessage := &QueueMessage{
 					context:    azureContext,
 					text:       inboundMessage.Text,
-					popReceipt: &popReceipt,
+					popReceipt: popReceipt,
 					URL:        URL,
 				}
 

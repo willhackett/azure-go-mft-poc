@@ -10,12 +10,11 @@ import (
 )
 
 func SendMessage(id string, messageType string, payload []byte, destinationAgent string) error {
-	var uuid string
 	var err error
 	var body []byte
 
 	message := &constant.Message{
-		ID:      uuid,
+		ID:      id,
 		KeyID:   config.GetKeys().KeyID,
 		Agent:   config.GetConfig().Agent.Name,
 		Type:    messageType,

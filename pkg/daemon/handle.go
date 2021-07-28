@@ -19,6 +19,8 @@ func handleFileRequest(m constant.Message) error {
 		return err
 	}
 
+	registry.AddTransfer(m.ID, body, 5*60*60*1000)
+
 	fmt.Println("Received file send request", body)
 
 	file, err := os.Open(body.FileName)
@@ -51,13 +53,14 @@ func handleFileHandshake(m constant.Message) error {
 	}
 	fmt.Println("File Handshake", body)
 
-	_, err := os.Open(body.FileName)
+	_, err := os.OpenFile(body.FileName, os.O_RDWR|os.O_CREATE, 0755)
 	if err != nil {
-		tasks.SendFileHandshakeResponse(m.ID, false, fmt.Sprintf("Cannot open destination path: %s", err), m.Agent)
+		fmt.Println("ERROR", err)
+		tasks.SendFileHandshakeResponse(m.ID, false, m.Agent, fmt.Sprintf("Cannot open destination path: %s", err))
 		return nil
 	}
 
-	if err = tasks.SendFileHandshakeResponse(m.ID, true, "", m.Agent); err != nil {
+	if err = tasks.SendFileHandshakeResponse(m.ID, true, m.Agent, ""); err != nil {
 		return err
 	}
 
@@ -71,7 +74,7 @@ func handleFileHandshakeResponse(qm *QueueMessage, m constant.Message) error {
 	}
 	fmt.Println("File Handshake Response", body)
 
-	if body.Accepted == false {
+	if !body.Accepted {
 		fmt.Println("Rejected, transfer to be considered failed.")
 		return nil
 	}
@@ -94,6 +97,10 @@ func handleFileHandshakeResponse(qm *QueueMessage, m constant.Message) error {
 	}
 
 	encryptedSignedURL, err := keys.EncryptString(transfer.Details.DestinationAgent, m.KeyID, signedURL)
+	if err != nil {
+		fmt.Println("FAILED TO ENCRYPT", err)
+		return err
+	}
 
 	err = tasks.SendFileAvailable(m.ID, encryptedSignedURL, transfer.Details.DestinationFileName, transfer.Details.DestinationAgent)
 
@@ -105,7 +112,6 @@ func handleFileAvailable(qm *QueueMessage, m constant.Message) error {
 	if err := json.Unmarshal(m.Payload, &body); err != nil {
 		return err
 	}
-	fmt.Println("File Available", body)
 
 	signedURL, err := keys.DecryptString(body.SignedURL)
 	if err != nil {

@@ -121,6 +121,8 @@ func UploadFromFile(containerName string, blobName string, fileName string, prog
 		return "", err
 	}
 
+	file.Close()
+
 	fmt.Println("Successfully uploaded blob", response.RequestID())
 
 	sasQueryParams, err := azblob.BlobSASSignatureValues{
@@ -156,7 +158,9 @@ func UploadFromFile(containerName string, blobName string, fileName string, prog
 
 func DownloadSignedURLToFile(signedURL string, fileName string, progress func(bytes int64)) error {
 	blobURLBase, _ := url.Parse(signedURL)
-	blobURL := azblob.NewBlobURL(*blobURLBase, azurePipeline)
+	anonymousCredential := azblob.NewAnonymousCredential()
+	pipeline := azblob.NewPipeline(anonymousCredential, azblob.PipelineOptions{})
+	blobURL := azblob.NewBlobURL(*blobURLBase, pipeline)
 
 	file, err := os.Create(fileName)
 	if err != nil {

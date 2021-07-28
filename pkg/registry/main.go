@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/willhackett/azure-mft/pkg/constant"
@@ -24,7 +25,7 @@ func AddTransfer(id string, obj constant.FileRequestMessage, expiresIn int64) {
 	transfers[id] = Transfer{
 		ID:         id,
 		Details:    obj,
-		Expiration: time.Now().Unix() + expiresIn,
+		Expiration: time.Now().Add(time.Duration(expiresIn) * time.Second).Unix(),
 	}
 }
 
@@ -34,6 +35,7 @@ func DeleteTransfer(id string) {
 
 func GetTransfer(id string) (Transfer, bool) {
 	t, ok := transfers[id]
+	fmt.Println(transfers)
 	return t, ok
 }
 

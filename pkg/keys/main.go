@@ -18,10 +18,10 @@ import (
 )
 
 func generatePrivateKey() *rsa.PrivateKey {
-	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
-			fmt.Printf("Cannot generate RSA key\n")
-			os.Exit(1)
+		fmt.Printf("Cannot generate RSA key\n")
+		os.Exit(1)
 	}
 	return privateKey
 }
@@ -29,16 +29,16 @@ func generatePrivateKey() *rsa.PrivateKey {
 func dumpPrivateKeyToFile(keysDir string, privateKey *rsa.PrivateKey) error {
 	var privateKeyBytes []byte = x509.MarshalPKCS1PrivateKey(privateKey)
 	privateKeyBlock := &pem.Block{
-			Type:  "RSA PRIVATE KEY",
-			Bytes: privateKeyBytes,
+		Type:  "RSA PRIVATE KEY",
+		Bytes: privateKeyBytes,
 	}
 	privatePem, err := os.Create(keysDir + "/private.pem")
 	if err != nil {
-			return err
+		return err
 	}
 	err = pem.Encode(privatePem, privateKeyBlock)
 	if err != nil {
-			return err
+		return err
 	}
 	return nil
 }
@@ -47,19 +47,19 @@ func dumpPublicKeyToFile(keysDir string, privateKey *rsa.PrivateKey) error {
 	publicKey := &privateKey.PublicKey
 	publicKeyBytes, err := x509.MarshalPKIXPublicKey(publicKey)
 	if err != nil {
-			return err
+		return err
 	}
 	publicKeyBlock := &pem.Block{
-			Type:  "PUBLIC KEY",
-			Bytes: publicKeyBytes,
+		Type:  "PUBLIC KEY",
+		Bytes: publicKeyBytes,
 	}
 	publicPem, err := os.Create(keysDir + "/public.pem")
 	if err != nil {
-			return err
+		return err
 	}
 	err = pem.Encode(publicPem, publicKeyBlock)
 	if err != nil {
-			return err
+		return err
 	}
 	return nil
 }
@@ -102,13 +102,13 @@ func createDirIfNotExist(dir string) error {
 	return nil
 }
 
-func generatePublicKeyID(publicKey *rsa.PublicKey) (string, error){
+func generatePublicKeyID(publicKey *rsa.PublicKey) (string, error) {
 	publicKeyBytes, err := x509.MarshalPKIXPublicKey(publicKey)
 	if err != nil {
 		return "", err
 	}
 	publicKeyHash := sha256.Sum256(publicKeyBytes)
-	
+
 	return fmt.Sprintf("%x", publicKeyHash)[0:9], nil
 }
 
@@ -124,7 +124,7 @@ func marshalPublicKey(publicKey *rsa.PublicKey) ([]byte, error) {
 	}
 
 	if err != nil {
-			return nil, err
+		return nil, err
 	}
 
 	return pem.EncodeToMemory(publicKeyBlock), nil
@@ -156,7 +156,6 @@ func getKeys(keysDir string) (*rsa.PrivateKey, *rsa.PublicKey, string, error) {
 
 	return privateKey, publicKey, keyID, err
 }
-
 
 func Init() {
 	keysDir := config.GetConfig().Paths.KeysDir

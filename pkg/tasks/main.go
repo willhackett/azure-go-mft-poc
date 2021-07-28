@@ -5,7 +5,6 @@ import (
 
 	"github.com/willhackett/azure-mft/pkg/constant"
 	"github.com/willhackett/azure-mft/pkg/messaging"
-	"github.com/willhackett/azure-mft/pkg/registry"
 )
 
 func SendFileRequest(sourceFileName string, sourceAgent string, destinationAgent string, destinationFileName string) error {
@@ -31,8 +30,6 @@ func SendFileRequest(sourceFileName string, sourceAgent string, destinationAgent
 		return err
 	}
 
-	registry.AddTransfer(uuid, details, 5*60*60*1000)
-
 	return nil
 }
 
@@ -50,6 +47,7 @@ func SendFileHandshake(id string, fileName string, fileSize int64, destinationAg
 	if err = messaging.SendMessage(id, constant.FileHandshakeMessageType, payload, destinationAgent); err != nil {
 		return err
 	}
+
 	return nil
 }
 
