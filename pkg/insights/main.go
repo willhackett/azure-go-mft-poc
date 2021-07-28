@@ -37,10 +37,6 @@ func Init() {
 	client = appinsights.NewTelemetryClientFromConfig(telemetryConfig)
 }
 
-func LogMetric() {
-	client.TrackEvent()
-}
-
 // InsightsHook is a logrus hook
 type InsightsHook struct{}
 
