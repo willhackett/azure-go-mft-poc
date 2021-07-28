@@ -3,14 +3,15 @@ package daemon
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/Azure/azure-storage-queue-go/azqueue"
+	"github.com/sirupsen/logrus"
 	"github.com/willhackett/azure-mft/pkg/azure"
 	"github.com/willhackett/azure-mft/pkg/config"
 	"github.com/willhackett/azure-mft/pkg/constant"
 	"github.com/willhackett/azure-mft/pkg/keys"
+	"github.com/willhackett/azure-mft/pkg/logger"
 )
 
 func canAgentSendFile(agentName string) bool {
@@ -26,16 +27,25 @@ func canAgentRequestFile(agentName string) bool {
 }
 
 func handleMessage(qm *QueueMessage) {
+	log := logger.Get().WithFields(logrus.Fields{
+		"event": "HandleMessage",
+	})
+
 	messageBody := constant.Message{}
+
+	// Unmarshal message from JSON
 	err := json.Unmarshal([]byte(qm.text), &messageBody)
 	if err != nil {
-		fmt.Println("Invalid message body, discarding")
+		log.Trace(err)
+		log.WithField("message_body", qm.text).Warn("Discarded invalid message payload")
+		return
 	}
 
+	// Verify the contents of the message signature
 	err = keys.VerifyMessage(messageBody)
-
 	if err != nil {
-		fmt.Println("Message signature not accepted, rejecting")
+		log.Trace(err)
+		log.WithField("id", messageBody.ID).WithField("body", qm.text).Warn("Message signature cannot be verified")
 		return
 	}
 
@@ -43,7 +53,7 @@ func handleMessage(qm *QueueMessage) {
 	case constant.FileRequestMessageType:
 		// Check if requesting agent is allowed to request files
 		if !canAgentRequestFile(messageBody.Agent) {
-			fmt.Println("Agent not allowed to request files, rejecting")
+			log.WithField("id", messageBody.ID).WithField("destination_agent", messageBody.Agent).Warn("Requesting agent is not allowed to request files")
 			return
 		}
 
@@ -51,7 +61,7 @@ func handleMessage(qm *QueueMessage) {
 	case constant.FileHandshakeMessageType:
 		// Check if requesting agent is allowed to send files
 		if !canAgentSendFile(messageBody.Agent) {
-			fmt.Println("Agent not allowed to request files, rejecting")
+			log.WithField("id", messageBody.ID).WithField("destination_agent", messageBody.Agent).Warn("Requesting agent is not allowed to send files")
 			return
 		}
 
@@ -61,20 +71,23 @@ func handleMessage(qm *QueueMessage) {
 
 	case constant.FileAvailableMessageType:
 		if !canAgentSendFile(messageBody.Agent) {
-			fmt.Println("Agent not allowed to request files, rejecting")
+			log.WithField("id", messageBody.ID).WithField("destination_agent", messageBody.Agent).Warn("Requesting agent is not allowed to request files")
 			return
 		}
 
 		err = handleFileAvailable(qm, messageBody)
 	default:
-		fmt.Println("Invalid message type, discarding")
-	}
-
-	if err != nil {
-		fmt.Println("An error occurred while processing message", err)
+		log.WithField("id", messageBody.ID).WithField("body", qm.text).Warn("Invalid Type on Message")
 		return
 	}
 
+	if err != nil {
+		log.WithField("id", messageBody.ID).Warn("Failed to process message, releasing to queue")
+		return
+	}
+
+	log.WithField("id", messageBody.ID).Info("Successful " + messageBody.Type + " operation")
+	log.WithField("id", messageBody.ID).Debug("Discarding dequeued message")
 	qm.URL.Delete(qm.context, qm.popReceipt)
 }
 
@@ -82,6 +95,10 @@ func Init() {
 	messagesURL, azureContext := azure.GetMessagesURLAndContext()
 
 	messageChannel := make(chan *azqueue.DequeuedMessage, constant.MaxConcurrentTransfers)
+
+	log := logger.Get().WithFields(logrus.Fields{
+		"event": "QueueOperation",
+	})
 
 	for i := 0; i < constant.MaxConcurrentTransfers; i++ {
 		// Go routine for handling messages
@@ -100,7 +117,7 @@ func Init() {
 
 				if inboundMessage.DequeueCount > constant.MaxRetriesThreshold {
 					URL.Delete(azureContext, popReceipt)
-					fmt.Println("Deleted " + inboundMessage.ID + " because it reached the failure theashold")
+					log.Warn(fmt.Sprintf("Deleted message with ID: %s as it reached the failure threshold %d", inboundMessage.ID, constant.MaxRetriesThreshold))
 					continue
 				}
 
@@ -118,7 +135,7 @@ func Init() {
 		if dequeue.NumMessages() == 0 {
 			time.Sleep(time.Second * 1)
 		} else {
-			fmt.Println("Processing new messages")
+			log.Debug("Processing new messages")
 
 			for m := int32(0); m < dequeue.NumMessages(); m++ {
 				messageChannel <- dequeue.Message(m)

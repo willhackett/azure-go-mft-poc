@@ -8,12 +8,14 @@ import (
 	"github.com/Azure/azure-pipeline-go/pipeline"
 	"github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/willhackett/azure-mft/pkg/config"
+	"github.com/willhackett/azure-mft/pkg/logger"
 )
 
 var (
 	azureCredential *azblob.SharedKeyCredential
-	azurePipeline pipeline.Pipeline
-	azureContext context.Context
+	azurePipeline   pipeline.Pipeline
+	azureContext    context.Context
+	log             = logger.Get()
 )
 
 func getCredential() error {

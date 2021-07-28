@@ -7,14 +7,20 @@ import (
 	"os"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"github.com/willhackett/azure-mft/pkg/azure"
 	"github.com/willhackett/azure-mft/pkg/constant"
 	"github.com/willhackett/azure-mft/pkg/keys"
+	"github.com/willhackett/azure-mft/pkg/logger"
 	"github.com/willhackett/azure-mft/pkg/registry"
 	"github.com/willhackett/azure-mft/pkg/tasks"
 )
 
 func handleFileRequest(m constant.Message) error {
+	log := logger.Get().WithFields(logrus.Fields{
+		"id":    m.ID,
+		"event": "HandleFileRequest",
+	})
 	body := constant.FileRequestMessage{}
 	if err := json.Unmarshal(m.Payload, &body); err != nil {
 		return err
@@ -22,67 +28,69 @@ func handleFileRequest(m constant.Message) error {
 
 	registry.AddTransfer(m.ID, body, 5*60*60*1000)
 
-	fmt.Println("Received file send request", body)
-
 	file, err := os.Open(body.FileName)
 	if err != nil {
-		fmt.Println("Cannot open file", err)
+		log.Error("Cannot open file for reading", err)
 		return err
 	}
 
 	fileInfo, err := file.Stat()
 	if err != nil {
-		fmt.Println("Cannot get file info", err)
+		log.Error("Cannot read file information", err)
 		return err
 	}
 
 	fileSize := fileInfo.Size()
+	log.Debug(fmt.Sprintf("File size: %d", fileSize))
 
-	err = tasks.SendFileHandshake(m.ID, body.DestinationFileName, fileSize, body.DestinationAgent)
-	if err != nil {
-		fmt.Println("Cannot send file handshake", err)
-		return err
-	}
-
-	return nil
+	return tasks.SendFileHandshake(m.ID, body.DestinationFileName, fileSize, body.DestinationAgent)
 }
 
 func handleFileHandshake(m constant.Message) error {
+	log := logger.Get().WithFields(logrus.Fields{
+		"id":    m.ID,
+		"event": "HandleFileHandshake",
+	})
 	body := constant.FileHandshakeMessage{}
+	log.Info("Received file handshake request from " + m.Agent)
 	if err := json.Unmarshal(m.Payload, &body); err != nil {
+		log.Error("File handshake has invalid payload", err)
 		return err
 	}
-	fmt.Println("File Handshake", body)
 
 	_, err := os.OpenFile(body.FileName, os.O_RDWR|os.O_CREATE, 0755)
 	if err != nil {
-		fmt.Println("ERROR", err)
-		tasks.SendFileHandshakeResponse(m.ID, false, m.Agent, fmt.Sprintf("Cannot open destination path: %s", err))
+		log.Error(fmt.Sprintf("Cannot open destination path: %s", body.FileName), err)
+		tasks.SendFileHandshakeResponse(m.ID, false, m.Agent, fmt.Sprintf("Cannot open destination path: %s", body.FileName))
 		return nil
 	}
 
-	if err = tasks.SendFileHandshakeResponse(m.ID, true, m.Agent, ""); err != nil {
-		return err
-	}
+	err = tasks.SendFileHandshakeResponse(m.ID, true, m.Agent, "")
 
-	return nil
+	return err
 }
 
 func handleFileHandshakeResponse(qm *QueueMessage, m constant.Message) error {
+	log := logger.Get().WithFields(logrus.Fields{
+		"id":    m.ID,
+		"event": "HandleFileHandshakeResponse",
+	})
+	log.Info(fmt.Sprintf("Received file handshake response from %s", m.Agent))
+
 	body := constant.FileHandshakeResponseMessage{}
 	if err := json.Unmarshal(m.Payload, &body); err != nil {
+		log.Error("File handshake response has invalid payload", err)
 		return err
 	}
-	fmt.Println("File Handshake Response", body)
 
 	if !body.Accepted {
-		fmt.Println("Rejected, transfer to be considered failed.")
+		log.Warn("File handshake was not accepted, end of transaction.")
 		return nil
 	}
 
 	transfer, ok := registry.GetTransfer(m.ID)
 	if !ok {
-		fmt.Println("Cannot get details of transfer, perhaps it expired")
+		log.Debug("Cannot find transfer", m.ID)
 		return errors.New("transfer expired or did not originate from this node")
 	}
 
@@ -90,21 +98,21 @@ func handleFileHandshakeResponse(qm *QueueMessage, m constant.Message) error {
 
 	reportProgress := func(bytes int64) {
 		if time.Now().Unix() > debounce {
-			fmt.Println("Upload bytes", bytes)
 			qm.IncreaseLease()
+			log.Debug(fmt.Sprintf("Uploaded bytes: %d and increased message visibility timeout", bytes))
 			debounce = time.Now().Add(time.Second * 30).Unix()
 		}
 	}
 
 	signedURL, err := azure.UploadFromFile(transfer.Details.DestinationAgent, m.ID, transfer.Details.FileName, reportProgress)
 	if err != nil {
-		fmt.Println("Failed to upload", err)
+		log.Error("Failed to upload file", err)
 		return err
 	}
 
 	encryptedSignedURL, err := keys.EncryptString(transfer.Details.DestinationAgent, m.KeyID, signedURL)
 	if err != nil {
-		fmt.Println("FAILED TO ENCRYPT", err)
+		log.Error("Failed to encrypt signed URL", err)
 		return err
 	}
 
@@ -114,6 +122,12 @@ func handleFileHandshakeResponse(qm *QueueMessage, m constant.Message) error {
 }
 
 func handleFileAvailable(qm *QueueMessage, m constant.Message) error {
+	log := logger.Get().WithFields(logrus.Fields{
+		"id":    m.ID,
+		"event": "HandleFileAvailable",
+	})
+	log.Info(fmt.Sprintf("Received file available from %s", m.Agent))
+
 	body := constant.FileAvailableMessage{}
 	if err := json.Unmarshal(m.Payload, &body); err != nil {
 		return err
@@ -121,7 +135,7 @@ func handleFileAvailable(qm *QueueMessage, m constant.Message) error {
 
 	signedURL, err := keys.DecryptString(body.SignedURL)
 	if err != nil {
-		fmt.Println("Cannot decrypt signed URL", err)
+		log.Error("Failed to decrypt signed URL", err)
 		return err
 	}
 
@@ -129,16 +143,16 @@ func handleFileAvailable(qm *QueueMessage, m constant.Message) error {
 
 	reportProgress := func(bytes int64) {
 		if time.Now().Unix() > debounce {
-			fmt.Println("Download bytes", bytes)
 			qm.IncreaseLease()
+			log.Debug(fmt.Sprintf("Downloaded bytes: %d and increased message visibility timeout", bytes))
 			debounce = time.Now().Add(time.Second * 30).Unix()
 		}
 	}
 
 	err = azure.DownloadSignedURLToFile(signedURL, body.FileName, reportProgress)
 	if err != nil {
-		fmt.Println("Failed to download", err)
+		log.Error(fmt.Sprintf("Failed to download file: %s", body.FileName), err)
 	}
-	fmt.Println("Downloaded ", body.FileName)
+	log.Info(fmt.Sprintf("Downloaded file: %s", body.FileName))
 	return nil
 }

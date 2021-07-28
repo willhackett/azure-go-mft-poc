@@ -1,7 +1,6 @@
 package registry
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/willhackett/azure-mft/pkg/constant"
@@ -35,7 +34,6 @@ func DeleteTransfer(id string) {
 
 func GetTransfer(id string) (Transfer, bool) {
 	t, ok := transfers[id]
-	fmt.Println(transfers)
 	return t, ok
 }
 

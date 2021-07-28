@@ -15,12 +15,17 @@ import (
 	"github.com/willhackett/azure-mft/pkg/azure"
 	"github.com/willhackett/azure-mft/pkg/config"
 	"github.com/willhackett/azure-mft/pkg/constant"
+	"github.com/willhackett/azure-mft/pkg/logger"
+)
+
+var (
+	log = logger.Get()
 )
 
 func generatePrivateKey() *rsa.PrivateKey {
 	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
-		fmt.Printf("Cannot generate RSA key\n")
+		log.Fatal("Cannot generate RSA key", err)
 		os.Exit(1)
 	}
 	return privateKey
@@ -174,5 +179,6 @@ func Init() {
 	cobra.CheckErr(err)
 	err = azure.UploadBuffer(constant.PublicKeyContainerName, keyReference, publicKeyBytes)
 	cobra.CheckErr(err)
-	fmt.Println("Public key updated:", keyID)
+
+	log.Debug(fmt.Sprintf("Updated key '%s' in public keys storage container", keyID))
 }

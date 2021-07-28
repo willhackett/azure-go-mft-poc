@@ -28,13 +28,13 @@ func getPublicKey(agentName string, keyID string) (*rsa.PublicKey, error) {
 	// Convert the public key to an x509 public key
 	parsedPublicKey, err := x509.ParsePKIXPublicKey(decodedPublicKeyPem.Bytes)
 	if err != nil {
-		fmt.Println("Error parsing public key", err)
+		log.Debug("Error parsing public key", err)
 		return nil, err
 	}
 	var publicKey *rsa.PublicKey
 	publicKey, ok := parsedPublicKey.(*rsa.PublicKey)
 	if !ok {
-		fmt.Println("Error coerce public key")
+		log.Debug("Failed coercing public key to rsa.PublicKey format")
 		return nil, errors.New("failed to create public key")
 	}
 	return publicKey, nil
@@ -63,20 +63,20 @@ func VerifyMessage(message constant.Message) error {
 
 	publicKey, err := getPublicKey(message.Agent, message.KeyID)
 	if err != nil {
-		fmt.Println("Error getting public key")
+		log.Debug("Error retrieving public key", err)
 		return err
 	}
 
 	signature, err := hex.DecodeString(message.Signature)
 	if err != nil {
-		fmt.Println("Error decoding hex string", err)
+		log.Debug("Error decoding hex string", err)
 		return err
 	}
 
 	// Verify the message signature with the public key
 	err = rsa.VerifyPKCS1v15(publicKey, crypto.SHA256, verifierHash[:], signature)
 	if err != nil {
-		fmt.Println("Not signed by trusted source")
+		log.Warn(fmt.Sprintf("Key '%s' from agent '%s' is not signed by a trusted source", message.KeyID, message.Agent))
 		return err
 	}
 

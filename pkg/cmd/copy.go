@@ -1,12 +1,12 @@
 package cmd
 
 import (
-	"errors"
 	"os"
 	"path"
 
 	"github.com/spf13/cobra"
 	"github.com/willhackett/azure-mft/pkg/config"
+	"github.com/willhackett/azure-mft/pkg/logger"
 	"github.com/willhackett/azure-mft/pkg/tasks"
 )
 
@@ -20,25 +20,36 @@ var (
 		Use:   "copy",
 		Short: "Copy a file to another agent",
 		Run: func(cmd *cobra.Command, args []string) {
+			log := logger.Get()
+
 			if fileName == "" || destinationFileName == "" || destinationAgent == "" {
-				err := errors.New("file name, destination file name and destination agent must be specified")
-				cobra.CheckErr(err)
+				log.Fatal("File name, destination file ame and destination agent must be specified")
+				os.Exit(1)
 			}
 
 			workingDir, err := os.Getwd()
-			cobra.CheckErr(err)
+			if err != nil {
+				log.Fatal("Cannot determine working directory")
+				log.Trace(err)
+				os.Exit(1)
+			}
 
 			if fileName[0:1] != "/" {
 				fileName = path.Join(workingDir, fileName)
 			}
 
 			if destinationFileName[0:1] != "/" {
-				cobra.CheckErr(errors.New("destination file namemust be an absolute path"))
+				log.Fatal("The destination filename must have an absolute path")
+				os.Exit(1)
 			}
 
 			if err = tasks.SendFileRequest(fileName, config.GetConfig().Agent.Name, destinationAgent, destinationFileName); err != nil {
-				cobra.CheckErr(err)
+				log.Fatal("Cannot copy file")
+				log.Trace(err)
+				os.Exit(1)
 			}
+
+			log.Info("Done")
 		},
 	}
 )

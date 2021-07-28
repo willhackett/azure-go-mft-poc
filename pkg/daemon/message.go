@@ -2,10 +2,10 @@ package daemon
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/Azure/azure-storage-queue-go/azqueue"
+	"github.com/willhackett/azure-mft/pkg/logger"
 )
 
 type QueueMessage struct {
@@ -18,17 +18,16 @@ type QueueMessage struct {
 func (qm *QueueMessage) Delete() {
 	_, err := qm.URL.Delete(qm.context, qm.popReceipt)
 	if err != nil {
-		fmt.Println("Something went wrong", err)
+		logger.Get().Trace(err)
 	}
 }
 
 func (qm *QueueMessage) IncreaseLease() {
+	log := logger.Get()
 	update, err := qm.URL.Update(qm.context, qm.popReceipt, time.Second*120, qm.text)
 	if err != nil {
-		fmt.Println("ERROR", err)
+		log.Debug("Failed to increase lease", err)
 	} else {
-		fmt.Println("NEWPOPRECEIPT", update.PopReceipt)
 		qm.popReceipt = update.PopReceipt
-		fmt.Println(qm)
 	}
 }

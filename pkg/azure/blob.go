@@ -35,19 +35,19 @@ func getBlobURL(containerName string, blobName string) azblob.BlobURL {
 func UpsertContainer(containerName string) error {
 	container := getContainer(containerName)
 
-	response, err := container.Create(getContext(), getBlobMetadata(), azblob.PublicAccessNone)
+	_, err := container.Create(getContext(), getBlobMetadata(), azblob.PublicAccessNone)
 
 	if err != nil {
 		if azErr, ok := err.(azblob.StorageError); ok {
 			if azErr.ServiceCode() == azblob.ServiceCodeContainerAlreadyExists {
-				fmt.Println("Storage container already exists")
+				log.Debug(fmt.Sprintf("Container '%s' already exists", containerName))
 				return nil
 			}
 			return azErr
 		}
 	}
 
-	fmt.Println("Storage container created: ", response.RequestID())
+	log.Debug(fmt.Sprintf("Created container '%s'", containerName))
 	return nil
 }
 
@@ -96,7 +96,7 @@ func DownloadBuffer(containerName string, blobName string) ([]byte, error) {
 	bytes := make([]byte, properties.ContentLength())
 	err = azblob.DownloadBlobToBuffer(getContext(), blobURL, 0, 0, bytes, azblob.DownloadFromBlobOptions{})
 	if err != nil {
-		fmt.Println(err)
+		log.Trace(err)
 		return nil, err
 	}
 	return bytes, nil
@@ -111,19 +111,19 @@ func UploadFromFile(containerName string, blobName string, fileName string, prog
 		return "", err
 	}
 
-	response, err := azblob.UploadFileToBlockBlob(getContext(), file, blockBlobURL, azblob.UploadToBlockBlobOptions{
+	_, err = azblob.UploadFileToBlockBlob(getContext(), file, blockBlobURL, azblob.UploadToBlockBlobOptions{
 		BlockSize: 32 * 1024,
 		Metadata:  getBlobMetadata(),
 		Progress:  progress,
 	})
 	if err != nil {
-		fmt.Println("Failed uploading file", err)
+		log.Trace(err)
 		return "", err
 	}
 
 	file.Close()
 
-	fmt.Println("Successfully uploaded blob", response.RequestID())
+	log.Debug(fmt.Sprintf("Uploaded %s to %s", fileName, blobURL))
 
 	sasQueryParams, err := azblob.BlobSASSignatureValues{
 		Protocol:      azblob.SASProtocolHTTPS,
@@ -133,7 +133,8 @@ func UploadFromFile(containerName string, blobName string, fileName string, prog
 		BlobName:      blobName,
 	}.NewSASQueryParameters(azureCredential)
 	if err != nil {
-		fmt.Println("Failed generating SAS QPs", err)
+		log.Trace(err)
+		log.Debug(fmt.Sprintf("Failed to generate SAS query params for %s/%s", containerName, blobName))
 		return "", err
 	}
 
@@ -148,10 +149,11 @@ func UploadFromFile(containerName string, blobName string, fileName string, prog
 	)
 
 	if err != nil {
+		log.Trace(err)
 		return "", err
 	}
 
-	fmt.Println("\nUpload complete: ", response.RequestID())
+	log.Debug(fmt.Sprintf("Signed URL: %s", signedURL))
 
 	return signedURL, nil
 }
@@ -164,7 +166,8 @@ func DownloadSignedURLToFile(signedURL string, fileName string, progress func(by
 
 	file, err := os.Create(fileName)
 	if err != nil {
-		fmt.Println("Failed creating file", err)
+		log.Trace(err)
+		log.Error(fmt.Sprintf("Failed to create file %s", fileName))
 		return nil
 	}
 
@@ -176,10 +179,11 @@ func DownloadSignedURLToFile(signedURL string, fileName string, progress func(by
 	})
 
 	if err != nil {
-		fmt.Println("Failed downloading file", err)
+		log.Trace(err)
+		log.Error(fmt.Sprintf("Failed to download %s", fileName))
 		return nil
 	}
 
-	fmt.Println("Successfully downloaded blob")
+	log.Debug(fmt.Sprintf("Downloaded %s to %s", signedURL, fileName))
 	return nil
 }

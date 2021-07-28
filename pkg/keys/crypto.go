@@ -14,7 +14,7 @@ import (
 func EncryptString(agentName string, keyID string, plaintext string) (string, error) {
 	publicKey, err := getPublicKey(agentName, keyID)
 	if err != nil {
-		fmt.Println("Failed to get public key", err)
+		log.Debug(fmt.Sprintf("Failed to get public key of agent '%s' with key ID '%s'", agentName, keyID))
 		return "", err
 	}
 
@@ -22,6 +22,7 @@ func EncryptString(agentName string, keyID string, plaintext string) (string, er
 	bytes := []byte(plaintext)
 	ciphertext, err := rsa.EncryptOAEP(hash, rand.Reader, publicKey, bytes, nil)
 	if err != nil {
+		log.Debug("Failed to encrypt text", err)
 		return "", err
 	}
 	return hex.EncodeToString(ciphertext), nil
@@ -38,7 +39,7 @@ func DecryptString(ciphertext string) (string, error) {
 	}
 	plaintext, err := rsa.DecryptOAEP(hash, rand.Reader, keys.PrivateKey, bytes, nil)
 	if err != nil {
-		fmt.Println("Unable to decrypt ciphertext", err)
+		log.Debug("Failed to decrypt ciphertext", err)
 		return "", err
 	}
 	return string(plaintext), nil

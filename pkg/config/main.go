@@ -10,25 +10,31 @@ import (
 	"github.com/spf13/viper"
 )
 
+var (
+	Version string
+)
+
 type AgentConf struct {
-	Name string `mapstructure:"name"`
+	Name     string `mapstructure:"name"`
+	LogLevel string `mapstructure:"log_level"`
 }
 
 type PathsConf struct {
-	KeysDir string	`mapstructure:"keys_dir"`
+	KeysDir  string `mapstructure:"keys_dir"`
 	CacheDir string `mapstructure:"cache_dir"`
-	TmpDir	string `mapstructure:"tmp_dir"`
+	TmpDir   string `mapstructure:"tmp_dir"`
 }
 
 type AzureConf struct {
-	AccountName string	`mapstructure:"account_name"`
-	AccountKey string	`mapstructure:"account_key"`
+	AccountName        string `mapstructure:"account_name"`
+	AccountKey         string `mapstructure:"account_key"`
+	InstrumentationKey string `mapstructure:"instrumentation_key"`
 }
 
 type Exit struct {
 	AgentName string `mapstructure:"agent_name"`
 	FileMatch string `mapstructure:"file_match"`
-	Command	 string	`mapstructure:"command"`
+	Command   string `mapstructure:"command"`
 }
 
 type AllowFilesFrom []string
@@ -36,8 +42,8 @@ type AllowFilesFrom []string
 type AllowRequestsFrom []string
 
 type Keys struct {
-	KeyID string
-	PublicKey *rsa.PublicKey
+	KeyID      string
+	PublicKey  *rsa.PublicKey
 	PrivateKey *rsa.PrivateKey
 }
 
@@ -45,9 +51,9 @@ type Config struct {
 	Agent AgentConf `mapstructure:"agent"`
 
 	Paths PathsConf `mapstructure:"paths"`
-	
+
 	Azure AzureConf `mapstructure:"azure"`
-	
+
 	Exits []Exit `mapstructure:"exits"`
 
 	AllowFilesFrom AllowFilesFrom `mapstructure:"allow_files_from"`
@@ -56,15 +62,15 @@ type Config struct {
 }
 
 var (
-	ConfigFilePath	string
+	ConfigFilePath string
 
-	config	Config
+	config Config
 
-	privateKey	*rsa.PrivateKey
+	privateKey *rsa.PrivateKey
 
 	publicKey *rsa.PublicKey
 
-	keyID		string
+	keyID string
 )
 
 func Init() {
@@ -75,9 +81,9 @@ func Init() {
 		cobra.CheckErr(err)
 
 		viper.AddConfigPath(userConfigDir)
-    viper.AddConfigPath("/var/azmft/")
-    viper.AddConfigPath("./.var/azmft/")
-    
+		viper.AddConfigPath("/var/azmft/")
+		viper.AddConfigPath("./.var/azmft/")
+
 		viper.SetConfigType("yaml")
 		viper.SetConfigName("azmft.config.yaml")
 	}
@@ -125,8 +131,8 @@ func GetConfig() Config {
 
 func GetKeys() Keys {
 	return Keys{
-		KeyID: keyID,
-		PublicKey: publicKey,
+		KeyID:      keyID,
+		PublicKey:  publicKey,
 		PrivateKey: privateKey,
 	}
 }

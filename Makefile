@@ -6,7 +6,7 @@ export $(shell sed 's/=.*//' .env)
 GO_PACKAGES = ./pkg/...
 
 build:
-	go build -o ./azmft -ldflags "-X main.version=$(VERSION)" ./pkg
+	go build -o ./azmft -ldflags "-X config.Version=$(VERSION)" ./pkg
 	chmod +x ./azmft
 
 test:
