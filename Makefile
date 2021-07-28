@@ -1,7 +1,4 @@
-include .env
-
 export VERSION := $(or $(CIRCLE_TAG),$(shell git log --pretty=format:'%h' -n 1))
-export $(shell sed 's/=.*//' .env)
 
 GO_PACKAGES = ./pkg/...
 
