@@ -31,7 +31,7 @@ func UpsertQueue(queueName string) error {
 	response, err := queueURL.Create(getContext(), getQueueMetadata())
 	if err != nil {
 		if azErr, ok := err.(azqueue.StorageError); ok {
-			if azErr.ServiceCode() == azqueue.ServiceCodeQueueAlreadyExists  {
+			if azErr.ServiceCode() == azqueue.ServiceCodeQueueAlreadyExists {
 				fmt.Println("Queue already exists")
 				return nil
 			}
@@ -58,7 +58,7 @@ func GetMessagesURLAndContext() (azqueue.MessagesURL, context.Context) {
 func PostMessage(queueName string, message string) error {
 	messagesURL := getMessagesURL(queueName)
 
-	response, err := messagesURL.Enqueue(getContext(), message, 0, 60 * time.Second)
+	response, err := messagesURL.Enqueue(getContext(), message, 0, 60*time.Minute)
 
 	if err != nil {
 		return err

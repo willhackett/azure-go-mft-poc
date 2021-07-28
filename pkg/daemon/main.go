@@ -111,7 +111,7 @@ func Init() {
 
 	for {
 		// Try to dequeue a batch of messages from the queue
-		dequeue, err := messagesURL.Dequeue(azureContext, azqueue.QueueMaxMessagesDequeue, 10*time.Second)
+		dequeue, err := messagesURL.Dequeue(azureContext, azqueue.QueueMaxMessagesDequeue, 60*time.Second)
 		if err != nil {
 			log.Fatal(err)
 		}
