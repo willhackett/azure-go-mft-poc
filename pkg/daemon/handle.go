@@ -103,6 +103,7 @@ func handleFileHandshakeResponse(qm *QueueMessage, m constant.Message) error {
 			debounce = time.Now().Add(time.Second * 30).Unix()
 		}
 	}
+	log.Info(fmt.Sprintf("Uploading file %s", transfer.Details.FileName))
 
 	signedURL, err := azure.UploadFromFile(transfer.Details.DestinationAgent, m.ID, transfer.Details.FileName, reportProgress)
 	if err != nil {
@@ -148,6 +149,7 @@ func handleFileAvailable(qm *QueueMessage, m constant.Message) error {
 			debounce = time.Now().Add(time.Second * 30).Unix()
 		}
 	}
+	log.Info(fmt.Sprintf("Downloading file from %s to %s", m.Agent, body.FileName))
 
 	err = azure.DownloadSignedURLToFile(signedURL, body.FileName, reportProgress)
 	if err != nil {

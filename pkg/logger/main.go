@@ -5,6 +5,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/willhackett/azure-mft/pkg/config"
+	"github.com/willhackett/azure-mft/pkg/insights"
 )
 
 var (
@@ -30,7 +31,10 @@ func Init() {
 		logLevel = log.InfoLevel
 	}
 
+	insightsHook := &insights.InsightsHook{}
+
 	log.SetLevel(logLevel)
+	log.AddHook(insightsHook)
 }
 
 func SetApp(a string) {

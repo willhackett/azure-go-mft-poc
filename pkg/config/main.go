@@ -10,8 +10,8 @@ import (
 	"github.com/spf13/viper"
 )
 
-var (
-	Version string
+const (
+	Version = "0.0.0"
 )
 
 type AgentConf struct {
