@@ -65,7 +65,7 @@ func handleMessage(qm *QueueMessage) {
 			return
 		}
 
-		err = handleFileAvailable(messageBody)
+		err = handleFileAvailable(qm, messageBody)
 	default:
 		fmt.Println("Invalid message type, discarding")
 	}
@@ -75,7 +75,7 @@ func handleMessage(qm *QueueMessage) {
 		return
 	}
 
-	message.URL.Delete(message.context, *message.popReceipt)
+	qm.URL.Delete(qm.context, *qm.popReceipt)
 }
 
 func Init() {
